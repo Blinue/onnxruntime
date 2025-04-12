@@ -301,6 +301,10 @@ if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)
   target_link_options(onnxruntime PRIVATE /DELAYLOAD:api-ms-win-core-heapl2-1-0.dll /ignore:4199)
 endif()
 
+if (WIN32 AND MSVC)
+  target_link_options(onnxruntime PRIVATE "/NODEFAULTLIB:libucrt$<$<CONFIG:Debug>:d>.lib" "/DEFAULTLIB:ucrt$<$<CONFIG:Debug>:d>.lib")
+endif()
+
 if (winml_is_inbox)
   # Apply linking flags required by inbox static analysis tools
   target_link_options(onnxruntime PRIVATE ${os_component_link_flags_list})

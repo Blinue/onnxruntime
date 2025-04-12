@@ -259,6 +259,10 @@ if (NOT onnxruntime_MINIMAL_BUILD AND NOT onnxruntime_EXTENDED_MINIMAL_BUILD
   message(FATAL_ERROR "onnxruntime_providers_shared unknown platform, need to specify shared library exports for it")
   endif()
 
+  if (WIN32 AND MSVC)
+    target_link_options(onnxruntime_providers_shared PRIVATE "/NODEFAULTLIB:libucrt$<$<CONFIG:Debug>:d>.lib" "/DEFAULTLIB:ucrt$<$<CONFIG:Debug>:d>.lib")
+  endif()
+
   install(TARGETS onnxruntime_providers_shared
           ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
           LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -175,6 +175,9 @@
   else()
     target_link_libraries(onnxruntime_providers_tensorrt PRIVATE ${onnxparser_link_libs} ${trt_link_libs} ${ONNXRUNTIME_PROVIDERS_SHARED} ${PROTOBUF_LIB} flatbuffers::flatbuffers ${ABSEIL_LIBS} PUBLIC CUDA::cudart)
   endif()
+  if (WIN32 AND MSVC)
+    target_link_options(onnxruntime_providers_tensorrt PRIVATE "/NODEFAULTLIB:libucrt$<$<CONFIG:Debug>:d>.lib" "/DEFAULTLIB:ucrt$<$<CONFIG:Debug>:d>.lib")
+  endif()
   target_include_directories(onnxruntime_providers_tensorrt PRIVATE ${ONNXRUNTIME_ROOT} ${CMAKE_CURRENT_BINARY_DIR}
     PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 

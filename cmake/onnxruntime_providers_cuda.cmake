@@ -257,6 +257,10 @@
       target_link_libraries(${target} PRIVATE ${NCCL_LIBRARIES})
     endif()
 
+    if (WIN32 AND MSVC)
+      target_link_options(${target} PRIVATE "/NODEFAULTLIB:libucrt$<$<CONFIG:Debug>:d>.lib" "/DEFAULTLIB:ucrt$<$<CONFIG:Debug>:d>.lib")
+    endif()
+
     if (WIN32)
       # *.cu cannot use PCH
       if (NOT onnxruntime_BUILD_CACHE)
