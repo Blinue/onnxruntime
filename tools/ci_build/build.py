@@ -506,6 +506,7 @@ def generate_build_tree(
         "-Donnxruntime_DISABLE_SPARSE_TENSORS=" + ("ON" if disable_sparse_tensors else "OFF"),
         "-Donnxruntime_DISABLE_OPTIONAL_TYPE=" + ("ON" if disable_optional_type else "OFF"),
         "-Donnxruntime_CUDA_MINIMAL=" + ("ON" if args.enable_cuda_minimal_build else "OFF"),
+        "-Donnxruntime_BUILD_UNIT_TESTS=" + ("ON" if args.test else "OFF"),
     ]
 
     if args.rv64:

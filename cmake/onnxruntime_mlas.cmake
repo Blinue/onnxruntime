@@ -803,7 +803,7 @@ block()
 endblock()
 
 
-if (NOT onnxruntime_ORT_MINIMAL_BUILD)
+if (0)
 
   #
   # Command line tool for quantization and de-quantization of 2-D fp32 tensors
