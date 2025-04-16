@@ -1,0 +1,62 @@
+name: release
+
+on:
+    workflow_dispatch:
+      inputs:
+        tag:
+          description: 'Tag'
+          required: false
+          type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: ['x64', 'ARM64']
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up PATH
+      # Needed to use GNU patch instead of Strawberry Perl patch
+      run: echo "C:\Program Files\Git\usr\bin" >> $env:GITHUB_PATH
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup Requests
+      run: pip install requests
+
+    - name: Build
+      run: python ci/build.py ${{ matrix.platform }}
+
+    - name: Store artifacts
+      uses: actions/upload-artifact@v4
+      with: 
+          name: onnxruntime-${{ matrix.platform }}
+          path: build/Release/Release
+
+  release:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Requests
+        run: pip install requests
+      
+      - name: Restore artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: publish
+
+      - name: Publish release
+        run: python ci/release.py
+        env:
+          TAG: ${{ inputs.tag }}
+          ACCESS_TOKEN: ${{ secrets.CONTENTS_ACCESS_TOKEN }}

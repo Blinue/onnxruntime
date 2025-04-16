@@ -1,3 +1,5 @@
+deps/
+publish/
 # build, distribute, and bins (+ python proto bindings)
 build
 build_*/
