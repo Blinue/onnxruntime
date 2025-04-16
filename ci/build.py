@@ -26,7 +26,7 @@ if platform == "x64":
     if not os.path.exists("deps"):
         # 下载依赖
         response = requests.get(
-            "https://github.com/Blinue/onnxruntime/releases/download/deps-250413/deps.zip",
+            "https://github.com/Blinue/onnxruntime/releases/download/deps-250416/deps.zip",
             stream=True,
         )
         with open("deps.zip", "wb") as fd:
