@@ -29,20 +29,43 @@ print("已下载依赖", flush=True)
 # 打包
 os.chdir("publish")
 
-os.makedirs("onnxruntime-x64\\cuda")
-os.rename("..\\deps\\cuda\\include", "onnxruntime-x64\\cuda\\include")
-os.makedirs("onnxruntime-x64\\cuda\\lib")
-os.rename("..\\deps\\cuda\\lib\\x64\\cudart.lib", "onnxruntime-x64\\cuda\\lib\\cudart.lib")
+os.mkdir("onnxruntime")
+os.mkdir("onnxruntime\\include")
+os.mkdir("onnxruntime\\lib")
+os.mkdir("onnxruntime\\lib\\x64")
+os.mkdir("onnxruntime\\lib\\ARM64")
+os.mkdir("onnxruntime\\bin")
+os.mkdir("onnxruntime\\bin\\x64")
+os.mkdir("onnxruntime\\bin\\ARM64")
+
+os.rename("..\\deps\\cuda\\include", "onnxruntime\\include\\cuda")
+os.rename("..\\deps\\cuda\\lib\\x64\\cudart.lib", "onnxruntime\\lib\\x64\\cudart.lib")
+
+os.rename("..\\include\\onnxruntime", "onnxruntime\\include\\onnxruntime")
+
+for arch in ["x64", "ARM64"]:
+    for dllName in ["DirectML.Debug", "DirectML", "onnxruntime"]:
+        os.rename(
+            f"onnxruntime-{arch}\\{dllName}.dll",
+            f"onnxruntime\\bin\\{arch}\\{dllName}.dll",
+        )
+    os.rename(
+        f"onnxruntime-{arch}\\onnxruntime.lib",
+        f"onnxruntime\\lib\\{arch}\\onnxruntime.lib",
+    )
 
 # tensorrt 拓展包
 os.mkdir("ext-tensorrt-x64")
-for provider in ["cuda", "shared", "tensorrt"]:
-    os.rename(f"onnxruntime-x64\\onnxruntime_providers_{provider}.dll", f"ext-tensorrt-x64\\onnxruntime_providers_{provider}.dll")
+for providerName in ["cuda", "shared", "tensorrt"]:
+    os.rename(
+        f"onnxruntime-x64\\onnxruntime_providers_{providerName}.dll",
+        f"ext-tensorrt-x64\\onnxruntime_providers_{providerName}.dll",
+    )
 os.rename("..\\deps\\cuda\\bin\\cudart64_12.dll", "ext-tensorrt-x64\\cudart64_12.dll")
 for fileName in os.listdir("..\\deps\\tensorrt\\bin"):
     os.rename(f"..\\deps\\tensorrt\\bin\\{fileName}", f"ext-tensorrt-x64\\{fileName}")
 
-for pkgName in ["onnxruntime-x64", "onnxruntime-ARM64", "ext-tensorrt-x64"]:
+for pkgName in ["onnxruntime", "ext-tensorrt-x64"]:
     shutil.make_archive(pkgName, "zip", pkgName)
 
 print("打包完成", flush=True)
@@ -78,10 +101,7 @@ headers = {
 
 response = requests.post(
     f"https://api.github.com/repos/{repo}/releases",
-    json={
-        "tag_name": tag,
-        "name": tag
-    },
+    json={"tag_name": tag, "name": tag},
     headers=headers,
 )
 if not response.ok:
@@ -91,7 +111,7 @@ uploadUrl = response.json()["upload_url"]
 uploadUrl = uploadUrl[: uploadUrl.find("{")] + "?name="
 
 # 上传资产
-for pkgName in ["onnxruntime-x64.zip", "onnxruntime-ARM64.zip", "ext-tensorrt-x64.zip"]:
+for pkgName in ["onnxruntime.zip", "ext-tensorrt-x64.zip"]:
     with open(pkgName, "rb") as f:
         # 流式上传
         # https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
