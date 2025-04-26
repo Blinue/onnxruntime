@@ -15,7 +15,7 @@ except:
 
 # 下载依赖
 response = requests.get(
-    "https://github.com/Blinue/onnxruntime/releases/download/deps-250416/deps.zip",
+    "https://github.com/Blinue/onnxruntime/releases/download/deps/deps.zip",
     stream=True,
 )
 with open("deps.zip", "wb") as fd:
