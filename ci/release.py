@@ -113,8 +113,7 @@ uploadUrl = uploadUrl[: uploadUrl.find("{")] + "?name="
 # 上传资产
 for pkgName in ["onnxruntime.zip", "ext-tensorrt-x64.zip"]:
     with open(pkgName, "rb") as f:
-        # 流式上传
-        # https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
+        # 流式上传，见 https://requests.readthedocs.io/en/latest/user/advanced/#streaming-uploads
         response = requests.post(
             uploadUrl + pkgName,
             data=f,

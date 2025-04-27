@@ -1,0 +1,38 @@
+name: Make deps
+
+on:
+    workflow_dispatch:
+      inputs:
+        cuda_ver:
+          description: 'CUDA version (x.y.z)'
+          required: true
+          type: string
+        cudnn_ver:
+          description: 'cuDNN version (x.y.z)'
+          required: true
+          type: string
+        trt_ver:
+          description: 'TensorRT version (x.y.z.w)'
+          required: true
+          type: string
+
+jobs:
+  deps:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup Requests
+      run: pip install requests
+
+    - name: Make deps
+      run: python ci/make_deps.py
+      env:
+          CUDA_VER: ${{ inputs.cuda_ver }}
+          CUDNN_VER: ${{ inputs.cudnn_ver }}
+          TRT_VER: ${{ inputs.trt_ver }}
+          ACCESS_TOKEN: ${{ secrets.CONTENTS_ACCESS_TOKEN }}
