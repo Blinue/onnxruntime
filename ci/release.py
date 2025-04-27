@@ -3,6 +3,7 @@ import sys
 import subprocess
 import requests
 import shutil
+import glob
 
 try:
     # https://docs.github.com/en/actions/learn-github-actions/variables
@@ -61,7 +62,8 @@ for providerName in ["cuda", "shared", "tensorrt"]:
         f"onnxruntime-x64\\onnxruntime_providers_{providerName}.dll",
         f"ext-tensorrt-x64\\onnxruntime_providers_{providerName}.dll",
     )
-os.rename("..\\deps\\cuda\\bin\\cudart64_12.dll", "ext-tensorrt-x64\\cudart64_12.dll")
+cudartDllName = os.path.basename(glob.glob("..\\deps\\cuda\\bin\\cudart64_*.dll")[0])
+os.rename(f"..\\deps\\cuda\\bin\\{cudartDllName}", f"ext-tensorrt-x64\\{cudartDllName}")
 for fileName in os.listdir("..\\deps\\tensorrt\\bin"):
     os.rename(f"..\\deps\\tensorrt\\bin\\{fileName}", f"ext-tensorrt-x64\\{fileName}")
 

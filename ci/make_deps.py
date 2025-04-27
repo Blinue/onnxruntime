@@ -4,6 +4,7 @@ import requests
 import subprocess
 import shutil
 import zipfile
+import threading
 
 try:
     # https://docs.github.com/en/actions/learn-github-actions/variables
@@ -32,128 +33,166 @@ trtMajor = trtVer.split(".")[0]
 
 os.mkdir("deps")
 
-
-# 下载 CUDA
-response = requests.get(
-    f"https://developer.download.nvidia.com/compute/cuda/{cudaVer}/network_installers/cuda_{cudaVer}_windows_network.exe",
-    stream=True,
-)
-with open("cuda_installer.exe", "wb") as fd:
-    for chunk in response.iter_content(chunk_size=1024):
-        fd.write(chunk)
-
-# 静默安装，命令行参数参见 https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/#install-the-cuda-software
-subprocess.run(
-    f"cuda_installer.exe -s cudart_{cudaMajorMinor} nvcc_{cudaMajorMinor} cublas_{cudaMajorMinor} cublas_dev_{cudaMajorMinor} visual_studio_integration_{cudaMajorMinor}",
-    shell=True,
-    check=True,
-)
-
-# 复制文件
-shutil.copytree(
-    f"C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v{cudaMajorMinor}",
-    "deps\\cuda",
-    # 跳过几个不需要且体积较大的文件
-    ignore=shutil.ignore_patterns("cublas*.dll", "nvptxcompiler_static.lib"),
-)
-
-print("已安装 CUDA", flush=True)
+# CUDA 和 cuDNN 不能同时安装
+lock = threading.Lock()
+fail = False
 
 
-# 下载 cuDNN
-response = requests.get(
-    f"https://developer.download.nvidia.com/compute/cudnn/{cudnnVer}/local_installers/cudnn_{cudnnVer}_windows.exe",
-    stream=True,
-)
-with open("cudnn_installer.exe", "wb") as fd:
-    for chunk in response.iter_content(chunk_size=10240):
-        fd.write(chunk)
+def deploy_cuda():
+    try:
+        # 下载 CUDA
+        response = requests.get(
+            f"https://developer.download.nvidia.com/compute/cuda/{cudaVer}/network_installers/cuda_{cudaVer}_windows_network.exe",
+            stream=True,
+        )
+        with open("cuda_installer.exe", "wb") as fd:
+            for chunk in response.iter_content(chunk_size=1024):
+                fd.write(chunk)
 
-# 静默安装
-subprocess.run(
-    "cudnn_installer.exe -s",
-    shell=True,
-    check=True,
-)
+        with lock:
+            # 静默安装，命令行参数参见 https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/#install-the-cuda-software
+            subprocess.run(
+                f"cuda_installer.exe -s cudart_{cudaMajorMinor} nvcc_{cudaMajorMinor} cublas_{cudaMajorMinor} cublas_dev_{cudaMajorMinor} visual_studio_integration_{cudaMajorMinor}",
+                shell=True,
+                check=True,
+            )
 
-# 复制文件
-os.mkdir("deps\\cudnn")
-shutil.copytree(
-    f"C:\\Program Files\\NVIDIA\\CUDNN\\v{cudnnMajorMinor}\\include\\{cudaMajorMinor}",
-    "deps\\cudnn\\include",
-)
-os.mkdir("deps\\cudnn\\lib")
-shutil.copy2(
-    f"C:\\Program Files\\NVIDIA\\CUDNN\\v{cudnnMajorMinor}\\lib\\{cudaMajorMinor}\\x64\\cudnn.lib",
-    "deps\\cudnn\\lib\\cudnn.lib",
-)
+        # 复制文件
+        shutil.copytree(
+            f"C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v{cudaMajorMinor}",
+            "deps\\cuda",
+            # 跳过几个不需要且体积较大的文件
+            ignore=shutil.ignore_patterns(
+                "cublas*.dll", "nvptxcompiler_static.lib"),
+        )
 
-print("已安装 cuDNN", flush=True)
+        print("已部署 CUDA", flush=True)
+    except:
+        global fail
+        fail = True
 
 
-# 下载 TensorRT
-response = requests.get(
-    f"https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/{trtMajorMinorPatch}/zip/TensorRT-{trtVer}.Windows.win10.cuda-{cudaMajorMinor}.zip",
-    stream=True,
-)
-with open("tensorrt.zip", "wb") as fd:
-    for chunk in response.iter_content(chunk_size=10240):
-        fd.write(chunk)
+def deploy_cudnn():
+    try:
+        # 下载 cuDNN
+        response = requests.get(
+            f"https://developer.download.nvidia.com/compute/cudnn/{cudnnVer}/local_installers/cudnn_{cudnnVer}_windows.exe",
+            stream=True,
+        )
+        with open("cudnn_installer.exe", "wb") as fd:
+            for chunk in response.iter_content(chunk_size=10240):
+                fd.write(chunk)
 
-os.mkdir("deps\\tensorrt")
-os.mkdir("deps\\tensorrt\\include")
-os.mkdir("deps\\tensorrt\\lib")
-os.mkdir("deps\\tensorrt\\bin")
+        with lock:
+            # 静默安装
+            subprocess.run(
+                "cudnn_installer.exe -s",
+                shell=True,
+                check=True,
+            )
 
-# 只解压需要的文件
-with zipfile.ZipFile("tensorrt.zip", "r") as zipFile:
-    for fileInfo in zipFile.infolist():
-        prefix = f"TensorRT-{trtVer}/"
+        # 复制文件
+        os.mkdir("deps\\cudnn")
+        shutil.copytree(
+            f"C:\\Program Files\\NVIDIA\\CUDNN\\v{cudnnMajorMinor}\\include\\{cudaMajorMinor}",
+            "deps\\cudnn\\include",
+        )
+        os.mkdir("deps\\cudnn\\lib")
+        shutil.copy2(
+            f"C:\\Program Files\\NVIDIA\\CUDNN\\v{cudnnMajorMinor}\\lib\\{cudaMajorMinor}\\x64\\cudnn.lib",
+            "deps\\cudnn\\lib\\cudnn.lib",
+        )
 
-        if fileInfo.filename.startswith(f"{prefix}include/"):
-            # 创建中间路径
-            relativePath = os.path.relpath(fileInfo.filename, f"{prefix}include/")
-            fullPath = os.path.join("deps\\tensorrt\\include", relativePath)
-            os.makedirs(os.path.dirname(fullPath), exist_ok=True)
+        print("已部署 cuDNN", flush=True)
+    except:
+        global fail
+        fail = True
 
-            if not fileInfo.filename.endswith("/"):
-                with zipFile.open(fileInfo) as source, open(fullPath, "wb") as target:
-                    target.write(source.read())
-        elif fileInfo.filename.endswith(".lib"):
-            for fileName in [
-                f"nvinfer_{trtMajor}.lib",
-                f"nvinfer_plugin_{trtMajor}.lib",
-                f"nvonnxparser_{trtMajor}.lib",
-            ]:
-                if fileInfo.filename == f"{prefix}lib/{fileName}":
-                    with zipFile.open(fileInfo) as source, open(
-                        f"deps\\tensorrt\\lib\\{fileName}", "wb"
-                    ) as target:
-                        target.write(source.read())
 
-                    break
-        elif fileInfo.filename.endswith(".dll"):
-            for fileName in [
-                f"nvinfer_{trtMajor}.dll",
-                f"nvinfer_builder_resource_{trtMajor}.dll",
-                f"nvinfer_plugin_{trtMajor}.dll",
-                f"nvonnxparser_{trtMajor}.dll",
-            ]:
-                if fileInfo.filename == f"{prefix}lib/{fileName}":
-                    with zipFile.open(fileInfo) as source, open(
-                        f"deps\\tensorrt\\bin\\{fileName}", "wb"
-                    ) as target:
-                        target.write(source.read())
+def deploy_tensorrt():
+    try:
+        # 下载 TensorRT
+        response = requests.get(
+            f"https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/{trtMajorMinorPatch}/zip/TensorRT-{trtVer}.Windows.win10.cuda-{cudaMajorMinor}.zip",
+            stream=True,
+        )
+        with open("tensorrt.zip", "wb") as fd:
+            for chunk in response.iter_content(chunk_size=10240):
+                fd.write(chunk)
 
-                    break
+        os.mkdir("deps\\tensorrt")
+        os.mkdir("deps\\tensorrt\\include")
+        os.mkdir("deps\\tensorrt\\lib")
+        os.mkdir("deps\\tensorrt\\bin")
 
-print("已安装 TensorRT", flush=True)
+        # 只解压需要的文件
+        with zipfile.ZipFile("tensorrt.zip", "r") as zipFile:
+            for fileInfo in zipFile.infolist():
+                prefix = f"TensorRT-{trtVer}/"
+
+                if fileInfo.filename.startswith(f"{prefix}include/"):
+                    # 创建中间路径
+                    relativePath = os.path.relpath(
+                        fileInfo.filename, f"{prefix}include/")
+                    fullPath = os.path.join(
+                        "deps\\tensorrt\\include", relativePath)
+                    os.makedirs(os.path.dirname(fullPath), exist_ok=True)
+
+                    if not fileInfo.filename.endswith("/"):
+                        with zipFile.open(fileInfo) as source, open(fullPath, "wb") as target:
+                            target.write(source.read())
+                elif fileInfo.filename.endswith(".lib"):
+                    for fileName in [
+                        f"nvinfer_{trtMajor}.lib",
+                        f"nvinfer_plugin_{trtMajor}.lib",
+                        f"nvonnxparser_{trtMajor}.lib",
+                    ]:
+                        if fileInfo.filename == f"{prefix}lib/{fileName}":
+                            with zipFile.open(fileInfo) as source, open(
+                                    f"deps\\tensorrt\\lib\\{fileName}", "wb"
+                            ) as target:
+                                target.write(source.read())
+
+                            break
+                elif fileInfo.filename.endswith(".dll"):
+                    for fileName in [
+                        f"nvinfer_{trtMajor}.dll",
+                        f"nvinfer_builder_resource_{trtMajor}.dll",
+                        f"nvinfer_plugin_{trtMajor}.dll",
+                        f"nvonnxparser_{trtMajor}.dll",
+                    ]:
+                        if fileInfo.filename == f"{prefix}lib/{fileName}":
+                            with zipFile.open(fileInfo) as source, open(
+                                f"deps\\tensorrt\\bin\\{fileName}", "wb"
+                            ) as target:
+                                target.write(source.read())
+
+                            break
+
+        print("已部署 TensorRT", flush=True)
+    except:
+        global fail
+        fail = True
+
+
+# 并发部署三个依赖
+threads = []
+for func in [deploy_cuda, deploy_cudnn, deploy_tensorrt]:
+    t = threading.Thread(target=func)
+    t.start()
+    threads.append(t)
+
+for t in threads:
+    t.join()
+
+if fail:
+    raise Exception("部署依赖失败")
 
 # 打包
 shutil.make_archive("deps", "zip", "deps")
 print("已打包", flush=True)
 
-# 上传
+# 更新资产
 repo = os.environ["GITHUB_REPOSITORY"]
 githubAccessToken = os.environ["ACCESS_TOKEN"]
 
@@ -203,4 +242,19 @@ with open("deps.zip", "rb") as f:
     if not response.ok:
         raise Exception("上传资产失败")
 
-print("已更新资产", flush=True)
+# 更新版本说明
+body = f"""| SDK | 版本 |
+|--------|--------|
+| CUDA | {cudaVer} |
+| cuDNN | {cudnnVer} |
+| TensorRT | {trtVer} |"""
+
+response = requests.patch(
+    f"https://api.github.com/repos/{repo}/releases/{releaseId}",
+    json={"body": body},
+    headers=headers
+)
+if not response.ok:
+    raise Exception("更新版本说明失败")
+
+print("已更新资产和版本说明", flush=True)
